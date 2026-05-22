@@ -29,16 +29,22 @@ export default function HomePage() {
     if (n) {
       setHuidigNaam(n);
     }
-  }, []);
+    router.prefetch("/bestelling/nieuw");
+    router.prefetch("/geschiedenis");
+    router.prefetch("/admin");
+  }, [router]);
 
   function slaOp() {
     if (!naam.trim()) {
       setFout("Voer je naam in.");
       return;
     }
-    localStorage.setItem(NAAM_KEY, naam.trim());
+    const opgeschoondeNaam = naam.trim();
+    localStorage.setItem(NAAM_KEY, opgeschoondeNaam);
     localStorage.setItem(NAAM_DATUM_KEY, new Date().toDateString());
-    router.push("/bestelling/nieuw");
+    setHuidigNaam(opgeschoondeNaam);
+    setNaam("");
+    setFout("");
   }
 
   function meldAf() {

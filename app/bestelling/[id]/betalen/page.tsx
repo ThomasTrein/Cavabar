@@ -64,10 +64,10 @@ export default function BetalenPage() {
   const cashGeldig = !isNaN(cashBedrag) && cashBedrag >= order.totaal;
 
   return (
-    <main className="flex flex-col min-h-screen p-5 gap-6 max-w-md mx-auto">
+    <main className="flex flex-col min-h-screen w-full max-w-lg mx-auto px-3 sm:px-5 py-4 sm:py-5 gap-5 sm:gap-6 pb-safe">
       <header className="flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-400 hover:text-white text-xl">←</button>
-        <h1 className="text-xl font-bold text-green-400">Betaling</h1>
+        <button onClick={() => router.back()} className="text-gray-400 hover:text-white text-xl min-h-10 min-w-10">←</button>
+        <h1 className="text-lg sm:text-xl font-bold text-green-400">Betaling</h1>
       </header>
 
       {/* Overzicht */}
@@ -97,7 +97,7 @@ export default function BetalenPage() {
             setCash(e.target.value);
             berekenWisselgeld(e.target.value);
           }}
-          className="bg-gray-800 border border-gray-700 text-white text-2xl px-4 py-3 rounded-xl focus:outline-none focus:border-green-500 text-center"
+          className="bg-gray-800 border border-gray-700 text-white text-2xl px-4 py-3.5 rounded-xl focus:outline-none focus:border-green-500 text-center"
         />
 
         {wisselgeld !== null && (

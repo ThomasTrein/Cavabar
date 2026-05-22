@@ -7,7 +7,7 @@ import {
   doc, query, orderBy, where, Timestamp, writeBatch,
 } from "firebase/firestore";
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -16,12 +16,26 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { FirebaseEvent, Category, MenuItem } from "@/lib/types";
 
-function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+function SortableItem({
+  id,
+  children,
+}: {
+  id: string;
+  children: (dragHandle: {
+    attributes: Record<string, unknown>;
+    listeners: Record<string, unknown>;
+    setActivatorNodeRef: (element: HTMLElement | null) => void;
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
+    <div ref={setNodeRef} style={style}>
+      {children({
+        attributes: attributes as Record<string, unknown>,
+        listeners: listeners as Record<string, unknown>,
+        setActivatorNodeRef,
+      })}
     </div>
   );
 }
@@ -37,7 +51,10 @@ export default function AdminMenu() {
   const [nieuwItem, setNieuwItem] = useState({ naam: "", prijs: "" });
   const [bezig, setBezig] = useState(false);
 
-  const sensors = useSensors(useSensor(PointerSensor));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 80, tolerance: 12 } })
+  );
 
   useEffect(() => { laad(); }, []);
 
@@ -124,21 +141,21 @@ export default function AdminMenu() {
   if (!event) return <p className="text-red-400">Geen actief evenement. Activeer eerst een evenement.</p>;
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl">
-      <h2 className="text-white font-bold text-lg">Menu — {event.name}</h2>
+    <div className="flex flex-col gap-5 w-full max-w-3xl mx-auto">
+      <h2 className="text-white font-bold text-lg sm:text-xl">Menu — {event.name}</h2>
 
       {/* Nieuwe categorie */}
-      <div className="bg-gray-900 rounded-2xl p-4 flex gap-2">
+      <div className="bg-gray-900 rounded-2xl p-4 flex flex-col sm:flex-row gap-2">
         <input
           value={nieuwCatNaam}
           onChange={(e) => setNieuwCatNaam(e.target.value)}
           placeholder="Nieuwe categorie..."
-          className="flex-1 bg-gray-800 border border-gray-700 text-white px-3 py-2 rounded-xl focus:outline-none focus:border-green-500"
+          className="flex-1 bg-gray-800 border border-gray-700 text-white px-3 py-3 rounded-xl focus:outline-none focus:border-green-500"
         />
         <button
           onClick={voegCatToe}
           disabled={bezig}
-          className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-xl transition"
+          className="bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-xl transition sm:whitespace-nowrap"
         >
           + Toevoegen
         </button>
@@ -166,47 +183,63 @@ export default function AdminMenu() {
                 <SortableContext items={(items[cat.id] ?? []).map((i) => i.id)} strategy={verticalListSortingStrategy}>
                   {(items[cat.id] ?? []).map((item) => (
                     <SortableItem key={item.id} id={item.id}>
-                      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800 last:border-0 cursor-grab active:cursor-grabbing">
-                        <span className="text-gray-600">⠿</span>
-                        <div className="flex-1">
-                          <span className={`font-medium ${item.available ? "text-white" : "text-gray-500 line-through"}`}>
-                            {item.name}
-                          </span>
-                          <span className="text-green-400 text-sm ml-2">€{item.price.toFixed(2)}</span>
+                      {({ attributes, listeners, setActivatorNodeRef }) => (
+                        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3.5 border-b border-gray-800 last:border-0">
+                          <button
+                            ref={setActivatorNodeRef}
+                            {...attributes}
+                            {...listeners}
+                            className="shrink-0 w-11 h-11 rounded-xl bg-gray-800 border border-gray-700 text-gray-300 text-xl flex items-center justify-center touch-none active:scale-95 transition"
+                            aria-label={`Versleep ${item.name}`}
+                          >
+                            ⠿
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium truncate ${item.available ? "text-white" : "text-gray-500 line-through"}`}>
+                              {item.name}
+                            </p>
+                            <p className="text-green-400 text-sm">€{item.price.toFixed(2)}</p>
+                          </div>
+                          <button
+                            onClick={() => toggleAvailable(cat.id, item.id, item.available)}
+                            className={`text-xs px-3 py-2 rounded-full transition min-h-10 ${item.available ? "bg-green-900 text-green-400" : "bg-gray-800 text-gray-500"}`}
+                          >
+                            {item.available ? "Beschikbaar" : "Uitgeschakeld"}
+                          </button>
+                          <button
+                            onClick={() => verwijderItem(cat.id, item.id)}
+                            className="text-gray-600 hover:text-red-400 transition text-lg min-h-10 min-w-10"
+                            aria-label={`Verwijder ${item.name}`}
+                          >
+                            🗑
+                          </button>
                         </div>
-                        <button
-                          onClick={() => toggleAvailable(cat.id, item.id, item.available)}
-                          className={`text-xs px-2 py-1 rounded-full transition ${item.available ? "bg-green-900 text-green-400" : "bg-gray-800 text-gray-500"}`}
-                        >
-                          {item.available ? "Beschikbaar" : "Uitgeschakeld"}
-                        </button>
-                        <button onClick={() => verwijderItem(cat.id, item.id)} className="text-gray-600 hover:text-red-400 transition">🗑</button>
-                      </div>
+                      )}
                     </SortableItem>
                   ))}
                 </SortableContext>
               </DndContext>
 
               {/* Nieuw item */}
-              <div className="flex gap-2 p-4">
+              <div className="flex flex-col sm:flex-row gap-2 p-4">
                 <input
                   value={nieuwItem.naam}
                   onChange={(e) => setNieuwItem((p) => ({ ...p, naam: e.target.value }))}
                   placeholder="Item naam"
-                  className="flex-1 bg-gray-800 border border-gray-700 text-white px-3 py-2 rounded-xl focus:outline-none focus:border-green-500 text-sm"
+                  className="flex-1 bg-gray-800 border border-gray-700 text-white px-3 py-3 rounded-xl focus:outline-none focus:border-green-500 text-sm"
                 />
                 <input
                   value={nieuwItem.prijs}
                   onChange={(e) => setNieuwItem((p) => ({ ...p, prijs: e.target.value }))}
                   placeholder="Prijs"
-                  className="w-20 bg-gray-800 border border-gray-700 text-white px-3 py-2 rounded-xl focus:outline-none focus:border-green-500 text-sm"
+                  className="w-full sm:w-24 bg-gray-800 border border-gray-700 text-white px-3 py-3 rounded-xl focus:outline-none focus:border-green-500 text-sm"
                 />
                 <button
                   onClick={() => voegItemToe(cat.id)}
                   disabled={bezig}
-                  className="bg-green-700 hover:bg-green-600 text-white px-3 py-2 rounded-xl transition text-sm"
+                  className="bg-green-700 hover:bg-green-600 text-white px-4 py-3 rounded-xl transition text-sm sm:whitespace-nowrap"
                 >
-                  +
+                  + Item
                 </button>
               </div>
             </div>

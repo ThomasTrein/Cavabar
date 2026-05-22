@@ -17,15 +17,23 @@ export default function AdminInstellingen() {
   const [lichtThema, setLichtThema] = useState(false);
   const [themaLaden, setThemaLaden] = useState(true);
   const [themaBezig, setThemaBezig] = useState(false);
+  const [themaFout, setThemaFout] = useState("");
 
   useEffect(() => { laadThema(); }, []);
 
   async function laadThema() {
     try {
+      setThemaFout("");
       const snap = await getDoc(doc(db, "settings", "global"));
       if (snap.exists()) setLichtThema(snap.data()?.lightTheme === true);
-    } catch (e) {
+    } catch (e: unknown) {
       console.error(e);
+      const code = typeof e === "object" && e !== null && "code" in e ? (e as { code?: string }).code : undefined;
+      if (code === "permission-denied") {
+        setThemaFout("Geen toestemming om thema-instellingen te lezen.");
+      } else {
+        setThemaFout("Thema kon niet geladen worden.");
+      }
     } finally {
       setThemaLaden(false);
     }
@@ -34,9 +42,18 @@ export default function AdminInstellingen() {
   async function toggleThema() {
     setThemaBezig(true);
     try {
+      setThemaFout("");
       const nieuw = !lichtThema;
       await setDoc(doc(db, "settings", "global"), { lightTheme: nieuw }, { merge: true });
       setLichtThema(nieuw);
+    } catch (e: unknown) {
+      console.error(e);
+      const code = typeof e === "object" && e !== null && "code" in e ? (e as { code?: string }).code : undefined;
+      if (code === "permission-denied") {
+        setThemaFout("Geen toestemming om thema-instellingen te wijzigen.");
+      } else {
+        setThemaFout("Thema kon niet gewijzigd worden.");
+      }
     } finally {
       setThemaBezig(false);
     }
@@ -61,6 +78,7 @@ export default function AdminInstellingen() {
         <div>
           <p className="text-white font-medium">🌞 Licht thema</p>
           <p className="text-gray-400 text-sm mt-0.5">Geldt voor alle gebruikers</p>
+          {themaFout && <p className="text-red-400 text-sm mt-1">{themaFout}</p>}
         </div>
         {themaLaden ? (
           <span className="text-gray-500 text-sm">Laden...</span>

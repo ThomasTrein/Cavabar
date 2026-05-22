@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
@@ -67,17 +67,18 @@ export default function NieuweBestellingPage() {
       const catsSnap = await getDocs(
         query(collection(db, `events/${event.id}/categories`), orderBy("order"))
       );
-      const cats: CategorieMetItems[] = [];
-      for (const catDoc of catsSnap.docs) {
-        const cat = { id: catDoc.id, ...catDoc.data() } as Category;
-        const itemsSnap = await getDocs(
-          query(collection(db, `events/${event.id}/categories/${cat.id}/items`), orderBy("order"))
-        );
-        const items = itemsSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as MenuItem))
-          .filter((i) => i.available);
-        cats.push({ cat, items });
-      }
+      const cats = await Promise.all(
+        catsSnap.docs.map(async (catDoc) => {
+          const cat = { id: catDoc.id, ...catDoc.data() } as Category;
+          const itemsSnap = await getDocs(
+            query(collection(db, `events/${event.id}/categories/${cat.id}/items`), orderBy("order"))
+          );
+          const items = itemsSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() } as MenuItem))
+            .filter((i) => i.available);
+          return { cat, items };
+        })
+      );
       setCategorieën(cats);
       const init: Record<string, boolean> = {};
       cats.forEach((c) => (init[c.cat.id] = true));
@@ -106,18 +107,24 @@ export default function NieuweBestellingPage() {
     setUitgeklapt((prev) => ({ ...prev, [catId]: !prev[catId] }));
   }
 
-  const geselecteerd: OrderItem[] = categorieën.flatMap(({ items }) =>
-    items
-      .filter((item) => (aantallen[item.id] ?? 0) > 0)
-      .map((item) => ({
-        itemId: item.id,
-        name: item.name,
-        quantity: aantallen[item.id],
-        price: item.price,
-      }))
+  const geselecteerd: OrderItem[] = useMemo(
+    () => categorieën.flatMap(({ items }) =>
+      items
+        .filter((item) => (aantallen[item.id] ?? 0) > 0)
+        .map((item) => ({
+          itemId: item.id,
+          name: item.name,
+          quantity: aantallen[item.id],
+          price: item.price,
+        }))
+    ),
+    [categorieën, aantallen]
   );
 
-  const totaal = geselecteerd.reduce((s, i) => s + i.price * i.quantity, 0);
+  const totaal = useMemo(
+    () => geselecteerd.reduce((s, i) => s + i.price * i.quantity, 0),
+    [geselecteerd]
+  );
 
   async function bevestig() {
     if (geselecteerd.length === 0) { setBestelFout("Selecteer minstens één item."); return; }
@@ -151,14 +158,16 @@ export default function NieuweBestellingPage() {
   );
 
   return (
-    <main className="flex flex-col min-h-screen pb-40">
-      <header className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => router.push("/")} className="text-gray-400 hover:text-white text-xl">←</button>
-        <h1 className="text-lg font-bold text-green-400 flex-1">Nieuwe bestelling</h1>
-        {totaal > 0 && <span className="text-green-400 font-bold">€{totaal.toFixed(2)}</span>}
+    <main className="flex flex-col min-h-screen pb-44">
+      <header className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800 px-3 sm:px-4 py-3">
+        <div className="w-full max-w-3xl mx-auto flex items-center gap-3">
+          <button onClick={() => router.push("/")} className="text-gray-400 hover:text-white text-xl min-h-10 min-w-10">←</button>
+          <h1 className="text-lg font-bold text-green-400 flex-1">Nieuwe bestelling</h1>
+          {totaal > 0 && <span className="text-green-400 font-bold text-sm sm:text-base">€{totaal.toFixed(2)}</span>}
+        </div>
       </header>
 
-      <div className="flex-1 px-4 py-3 flex flex-col gap-3">
+      <div className="flex-1 w-full max-w-3xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3">
         {categorieën.map(({ cat, items }) => (
           <div key={cat.id} className="bg-gray-900 rounded-2xl overflow-hidden">
             <button
@@ -176,16 +185,16 @@ export default function NieuweBestellingPage() {
                       <p className="text-white font-medium">{item.name}</p>
                       <p className="text-green-400 text-sm">€{item.price.toFixed(2)}</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <button
                         onClick={() => wijzigAantal(item.id, -1)}
                         disabled={!aantallen[item.id]}
-                        className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white text-xl flex items-center justify-center"
+                        className="w-11 h-11 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white text-2xl flex items-center justify-center"
                       >−</button>
-                      <span className="text-white font-bold w-5 text-center">{aantallen[item.id] ?? 0}</span>
+                      <span className="text-white font-bold w-6 text-center">{aantallen[item.id] ?? 0}</span>
                       <button
                         onClick={() => wijzigAantal(item.id, 1)}
-                        className="w-9 h-9 rounded-full bg-green-700 hover:bg-green-600 text-white text-xl flex items-center justify-center"
+                        className="w-11 h-11 rounded-full bg-green-700 hover:bg-green-600 text-white text-2xl flex items-center justify-center"
                       >+</button>
                     </div>
                   </div>
@@ -196,24 +205,26 @@ export default function NieuweBestellingPage() {
         ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-4 flex flex-col gap-2">
-        {bestelFout && <p className="text-red-400 text-sm text-center">{bestelFout}</p>}
-        {geselecteerd.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-1">
-            {geselecteerd.map((i) => (
-              <span key={i.itemId} className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded-full">
-                {i.quantity}× {i.name}
-              </span>
-            ))}
-          </div>
-        )}
-        <button
-          onClick={bevestig}
-          disabled={geselecteerd.length === 0}
-          className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-xl font-bold py-5 rounded-2xl transition"
-        >
-          Bestelling plaatsen · €{totaal.toFixed(2)}
-        </button>
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-950/95 border-t border-gray-800 px-3 sm:px-4 pt-3 pb-safe flex flex-col gap-2 backdrop-blur-sm">
+        <div className="w-full max-w-3xl mx-auto flex flex-col gap-2">
+          {bestelFout && <p className="text-red-400 text-sm text-center">{bestelFout}</p>}
+          {geselecteerd.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1 max-h-16 overflow-y-auto">
+              {geselecteerd.map((i) => (
+                <span key={i.itemId} className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded-full">
+                  {i.quantity}× {i.name}
+                </span>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={bevestig}
+            disabled={geselecteerd.length === 0}
+            className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-lg sm:text-xl font-bold py-4 sm:py-5 rounded-2xl transition"
+          >
+            Bestelling plaatsen · €{totaal.toFixed(2)}
+          </button>
+        </div>
       </div>
     </main>
   );

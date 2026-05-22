@@ -94,21 +94,21 @@ export default function AdminPage() {
 
   return (
     <main className="flex flex-col min-h-screen">
-      <header className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/")} className="text-gray-400 hover:text-white text-sm transition">← Home</button>
-          <h1 className="text-lg font-bold text-green-400">Admin — Cavabar</h1>
+      <header className="bg-gray-900 border-b border-gray-800 px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button onClick={() => router.push("/")} className="text-gray-400 hover:text-white text-sm transition min-h-10 px-2">← Home</button>
+          <h1 className="text-base sm:text-lg font-bold text-green-400 truncate">Admin — Cavabar</h1>
         </div>
-        <button onClick={logout} className="text-gray-500 hover:text-red-400 text-sm transition">Afmelden</button>
+        <button onClick={logout} className="text-gray-500 hover:text-red-400 text-sm transition min-h-10 px-2 shrink-0">Afmelden</button>
       </header>
 
       {/* Tab navigatie */}
-      <div className="bg-gray-900 border-b border-gray-800 flex overflow-x-auto">
+      <div className="bg-gray-900 border-b border-gray-800 flex overflow-x-auto snap-x snap-mandatory">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActieveTab(tab.id)}
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition border-b-2 ${
+            className={`px-4 py-3.5 text-sm font-medium whitespace-nowrap transition border-b-2 snap-start ${
               actieveTab === tab.id
                 ? "border-green-500 text-green-400"
                 : "border-transparent text-gray-400 hover:text-white"
@@ -119,12 +119,14 @@ export default function AdminPage() {
         ))}
       </div>
 
-      <div className="flex-1 p-4">
-        {actieveTab === "evenementen" && <AdminEvenementen />}
-        {actieveTab === "menu" && <AdminMenu />}
-        {actieveTab === "bestellingen" && <AdminBestellingen />}
-        {actieveTab === "statistieken" && <AdminStatistieken />}
-        {actieveTab === "instellingen" && <AdminInstellingen />}
+      <div className="flex-1 p-3 sm:p-4 md:p-6">
+        <div className="w-full max-w-5xl mx-auto">
+          {actieveTab === "evenementen" && <AdminEvenementen />}
+          {actieveTab === "menu" && <AdminMenu />}
+          {actieveTab === "bestellingen" && <AdminBestellingen />}
+          {actieveTab === "statistieken" && <AdminStatistieken />}
+          {actieveTab === "instellingen" && <AdminInstellingen />}
+        </div>
       </div>
     </main>
   );

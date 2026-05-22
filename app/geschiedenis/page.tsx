@@ -71,13 +71,15 @@ export default function GeschiedenisPage() {
 
   return (
     <main className="flex flex-col min-h-screen pb-6">
-      <header className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => router.push("/")} className="text-gray-400 hover:text-white text-xl">←</button>
-        <h1 className="text-lg font-bold text-green-400 flex-1">Mijn bestellingen</h1>
-        <span className="text-gray-500 text-sm">{lidNaam}</span>
+      <header className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800 px-3 sm:px-4 py-3">
+        <div className="w-full max-w-3xl mx-auto flex items-center gap-3">
+          <button onClick={() => router.push("/")} className="text-gray-400 hover:text-white text-xl min-h-10 min-w-10">←</button>
+          <h1 className="text-lg font-bold text-green-400 flex-1">Mijn bestellingen</h1>
+          <span className="text-gray-500 text-xs sm:text-sm truncate max-w-28 sm:max-w-none">{lidNaam}</span>
+        </div>
       </header>
 
-      <div className="px-4 py-4 flex flex-col gap-3">
+      <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-4 flex flex-col gap-3">
         {fout && <p className="text-red-400">{fout}</p>}
         {!fout && bestellingen.length === 0 && (
           <div className="text-center text-gray-500 mt-12">
@@ -93,10 +95,10 @@ export default function GeschiedenisPage() {
               </p>
               <span className="text-gray-500 text-xs ml-3 shrink-0">{formatTijd(order)}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
               <span className="text-green-400 font-bold">€{order.totaal.toFixed(2)}</span>
               {order.cashGegeven != null && (
-                <span className="text-gray-400 text-sm">
+                <span className="text-gray-400 text-xs sm:text-sm break-words">
                   Cash: €{(order.cashGegeven as number).toFixed(2)} · Wisselgeld: €{((order.wisselgeld as number) ?? 0).toFixed(2)}
                 </span>
               )}

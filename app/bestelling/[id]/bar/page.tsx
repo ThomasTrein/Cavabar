@@ -33,9 +33,10 @@ export default function BarPage() {
   if (!order) return <div className="flex items-center justify-center min-h-screen bg-white text-red-500 text-xl">Bestelling niet gevonden.</div>;
 
   return (
-    <main className="flex flex-col min-h-screen bg-white text-gray-900 p-6">
+    <main className="flex flex-col min-h-screen bg-white text-gray-900 px-3 sm:px-6 py-4 sm:py-6 pb-safe">
+      <div className="w-full max-w-3xl mx-auto flex-1 flex flex-col">
       {/* Header — leesbaar voor barman */}
-      <div className="flex items-center justify-between mb-6 border-b-2 border-gray-200 pb-4">
+      <div className="flex items-center justify-between mb-5 sm:mb-6 border-b-2 border-gray-200 pb-4">
         <div>
           <p className="text-gray-500 text-sm uppercase tracking-wide">Bestelling</p>
           <p className="text-2xl font-bold text-green-700">{order.lidNaam}</p>
@@ -44,14 +45,14 @@ export default function BarPage() {
       </div>
 
       {/* Items — groot en leesbaar */}
-      <div className="flex-1 flex flex-col gap-4">
+      <div className="flex-1 flex flex-col gap-3 sm:gap-4">
         {order.items.map((item, i) => (
           <div
             key={i}
-            className="flex items-center justify-between bg-gray-100 rounded-2xl px-6 py-5"
+            className="flex items-center justify-between bg-gray-100 rounded-2xl px-4 sm:px-6 py-4 sm:py-5"
           >
-            <span className="text-2xl font-semibold text-gray-800">{item.name}</span>
-            <span className="text-4xl font-black text-green-700">{item.quantity}</span>
+            <span className="text-xl sm:text-2xl font-semibold text-gray-800">{item.name}</span>
+            <span className="text-3xl sm:text-4xl font-black text-green-700">{item.quantity}</span>
           </div>
         ))}
       </div>
@@ -65,7 +66,7 @@ export default function BarPage() {
       )}
 
       {/* Klaar knop */}
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="mt-5 sm:mt-6 flex flex-col gap-3">
         <button
           onClick={() => router.push("/")}
           className="w-full bg-green-600 hover:bg-green-500 text-white text-xl font-bold py-5 rounded-2xl transition"
@@ -78,6 +79,7 @@ export default function BarPage() {
         >
           ➕ Nieuwe bestelling
         </button>
+      </div>
       </div>
     </main>
   );
