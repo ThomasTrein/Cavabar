@@ -11,12 +11,34 @@ export interface Category {
   order: number;
 }
 
+export interface OptionChoice {
+  id: string;
+  name: string;
+  priceAdjustment: number;
+}
+
+export interface OptionGroup {
+  id: string;
+  name: string;
+  type: "radio" | "checkbox";
+  required: boolean;
+  choices: OptionChoice[];
+}
+
 export interface MenuItem {
   id: string;
   name: string;
   price: number;
   available: boolean;
   order: number;
+  optionGroups?: OptionGroup[];
+}
+
+export interface SelectedOption {
+  groupId: string;
+  groupName: string;
+  choiceIds: string[];
+  choiceNames: string[];
 }
 
 export interface OrderItem {
@@ -24,6 +46,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  selectedOptions?: SelectedOption[];
 }
 
 export interface Order {

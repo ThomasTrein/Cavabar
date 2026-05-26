@@ -9,6 +9,8 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  query,
+  orderBy,
   Timestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -26,15 +28,12 @@ export default function AdminEvenementen() {
 
   async function laad() {
     setLaden(true);
-    setFout("");
     try {
-      const snap = await getDocs(collection(db, "events"));
-      const events = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirebaseEvent));
-      events.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-      setEvenementen(events);
+      const snap = await getDocs(query(collection(db, "events"), orderBy("date", "desc")));
+      setEvenementen(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirebaseEvent)));
     } catch (e) {
       console.error("Fout bij laden evenementen:", e);
-      setFout("Kon evenementen niet laden. Controleer Firestore permissies of je internetverbinding.");
+      setFout("Kon evenementen niet laden. Controleer je Firebase configuratie.");
     } finally {
       setLaden(false);
     }
@@ -74,16 +73,16 @@ export default function AdminEvenementen() {
   }
 
   if (laden) return <p className="text-gray-400">Laden...</p>;
+  if (fout) return (
+    <div className="flex flex-col gap-3 max-w-2xl">
+      <p className="text-red-400">{fout}</p>
+      <button onClick={laad} className="text-green-400 underline text-sm">Opnieuw proberen</button>
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-5 max-w-2xl">
       <h2 className="text-white font-bold text-lg">Evenementen</h2>
-
-      {fout && (
-        <div className="flex items-center gap-3 bg-red-950/40 border border-red-900 rounded-xl p-3">
-          <p className="text-red-300 text-sm flex-1">{fout}</p>
-          <button onClick={laad} className="text-red-200 underline text-sm">Opnieuw proberen</button>
-        </div>
-      )}
 
       {/* Nieuw evenement */}
       <div className="bg-gray-900 rounded-2xl p-4 flex flex-col gap-3">

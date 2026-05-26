@@ -3,37 +3,30 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useToast } from "@/components/ToastProvider";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 const ADMIN_KEY = "cavabar_admin_auth";
 const ADMIN_DATUM_KEY = "cavabar_admin_datum";
 
 export default function AdminInstellingen() {
+  const { toast } = useToast();
   const [huidigWw, setHuidigWw] = useState("");
   const [nieuwWw, setNieuwWw] = useState("");
   const [bevestigWw, setBevestigWw] = useState("");
-  const [bericht, setBericht] = useState("");
-  const [fout, setFout] = useState("");
 
   const [lichtThema, setLichtThema] = useState(false);
   const [themaLaden, setThemaLaden] = useState(true);
   const [themaBezig, setThemaBezig] = useState(false);
-  const [themaFout, setThemaFout] = useState("");
 
   useEffect(() => { laadThema(); }, []);
 
   async function laadThema() {
     try {
-      setThemaFout("");
       const snap = await getDoc(doc(db, "settings", "global"));
       if (snap.exists()) setLichtThema(snap.data()?.lightTheme === true);
-    } catch (e: unknown) {
+    } catch (e) {
       console.error(e);
-      const code = typeof e === "object" && e !== null && "code" in e ? (e as { code?: string }).code : undefined;
-      if (code === "permission-denied") {
-        setThemaFout("Geen toestemming om thema-instellingen te lezen.");
-      } else {
-        setThemaFout("Thema kon niet geladen worden.");
-      }
     } finally {
       setThemaLaden(false);
     }
@@ -42,18 +35,12 @@ export default function AdminInstellingen() {
   async function toggleThema() {
     setThemaBezig(true);
     try {
-      setThemaFout("");
       const nieuw = !lichtThema;
       await setDoc(doc(db, "settings", "global"), { lightTheme: nieuw }, { merge: true });
       setLichtThema(nieuw);
-    } catch (e: unknown) {
-      console.error(e);
-      const code = typeof e === "object" && e !== null && "code" in e ? (e as { code?: string }).code : undefined;
-      if (code === "permission-denied") {
-        setThemaFout("Geen toestemming om thema-instellingen te wijzigen.");
-      } else {
-        setThemaFout("Thema kon niet gewijzigd worden.");
-      }
+      toast(nieuw ? "Licht thema ingeschakeld" : "Donker thema ingeschakeld", "success");
+    } catch {
+      toast("Fout bij opslaan van thema", "error");
     } finally {
       setThemaBezig(false);
     }
@@ -61,16 +48,16 @@ export default function AdminInstellingen() {
 
   function wijzigWachtwoord() {
     const correct = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "admin123";
-    if (huidigWw !== correct) { setFout("Huidig wachtwoord is fout."); return; }
-    if (!nieuwWw.trim()) { setFout("Nieuw wachtwoord mag niet leeg zijn."); return; }
-    if (nieuwWw !== bevestigWw) { setFout("Wachtwoorden komen niet overeen."); return; }
-    setFout("");
-    setBericht(`✅ Sla dit op in je .env.local: NEXT_PUBLIC_ADMIN_PASSWORD=${nieuwWw}`);
+    if (huidigWw !== correct) { toast("Huidig wachtwoord is fout.", "error"); return; }
+    if (!nieuwWw.trim()) { toast("Nieuw wachtwoord mag niet leeg zijn.", "error"); return; }
+    if (nieuwWw !== bevestigWw) { toast("Wachtwoorden komen niet overeen.", "error"); return; }
+    toast(`Sla dit op in .env.local: NEXT_PUBLIC_ADMIN_PASSWORD=${nieuwWw}`, "info");
     setHuidigWw(""); setNieuwWw(""); setBevestigWw("");
   }
 
   return (
     <div className="flex flex-col gap-5 max-w-md">
+      <LoadingOverlay visible={themaBezig} />
       <h2 className="text-white font-bold text-lg">Instellingen</h2>
 
       {/* Thema */}
@@ -78,7 +65,6 @@ export default function AdminInstellingen() {
         <div>
           <p className="text-white font-medium">🌞 Licht thema</p>
           <p className="text-gray-400 text-sm mt-0.5">Geldt voor alle gebruikers</p>
-          {themaFout && <p className="text-red-400 text-sm mt-1">{themaFout}</p>}
         </div>
         {themaLaden ? (
           <span className="text-gray-500 text-sm">Laden...</span>
@@ -106,7 +92,7 @@ export default function AdminInstellingen() {
           type="password"
           placeholder="Huidig wachtwoord"
           value={huidigWw}
-          onChange={(e) => { setHuidigWw(e.target.value); setFout(""); setBericht(""); }}
+          onChange={(e) => setHuidigWw(e.target.value)}
           className="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-xl focus:outline-none focus:border-green-500"
         />
         <input
@@ -123,20 +109,12 @@ export default function AdminInstellingen() {
           onChange={(e) => setBevestigWw(e.target.value)}
           className="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-xl focus:outline-none focus:border-green-500"
         />
-        {fout && <p className="text-red-400 text-sm">{fout}</p>}
-        {bericht && <p className="text-green-400 text-sm">{bericht}</p>}
         <button
           onClick={wijzigWachtwoord}
           className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-xl transition"
         >
           Wachtwoord wijzigen
         </button>
-      </div>
-
-      <div className="bg-gray-900 rounded-2xl p-5">
-        <p className="text-gray-300 font-medium mb-2">Firebase Project</p>
-        <p className="text-gray-500 text-sm">Project ID: {process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "niet geconfigureerd"}</p>
-        <p className="text-gray-500 text-sm mt-1">Configureer Firebase in <code className="text-green-400">.env.local</code></p>
       </div>
     </div>
   );

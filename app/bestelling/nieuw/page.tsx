@@ -9,11 +9,12 @@ import {
   where,
   getDocs,
   orderBy,
-  doc,
   addDoc,
   Timestamp,
 } from "firebase/firestore";
-import type { FirebaseEvent, Category, MenuItem, OrderItem } from "@/lib/types";
+import type { FirebaseEvent, Category, MenuItem, OrderItem, SelectedOption } from "@/lib/types";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useToast } from "@/components/ToastProvider";
 
 const NAAM_KEY = "cavabar_naam";
 const NAAM_DATUM_KEY = "cavabar_naam_datum";
@@ -41,13 +42,16 @@ interface CategorieMetItems {
 
 export default function NieuweBestellingPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState("");
   const [activeEvent, setActiveEvent] = useState<FirebaseEvent | null>(null);
-  const [categorieën, setCategorieën] = useState<CategorieMetItems[]>([]);
+  const [categorieen, setCategorieen] = useState<CategorieMetItems[]>([]);
   const [aantallen, setAantallen] = useState<Record<string, number>>({});
   const [uitgeklapt, setUitgeklapt] = useState<Record<string, boolean>>({});
-  const [bestelFout, setBestelFout] = useState("");
+  const [bezig, setBezig] = useState(false);
+  // geselecteerdeOpties[itemId][groupId] = choiceIds[]
+  const [geselecteerdeOpties, setGeselecteerdeOpties] = useState<Record<string, Record<string, string[]>>>({});
 
   useEffect(() => {
     const naam = getLidNaam();
@@ -79,7 +83,7 @@ export default function NieuweBestellingPage() {
           return { cat, items };
         })
       );
-      setCategorieën(cats);
+      setCategorieen(cats);
       const init: Record<string, boolean> = {};
       cats.forEach((c) => (init[c.cat.id] = true));
       setUitgeklapt(init);
@@ -107,18 +111,52 @@ export default function NieuweBestellingPage() {
     setUitgeklapt((prev) => ({ ...prev, [catId]: !prev[catId] }));
   }
 
+  function selecteerOptie(itemId: string, groupId: string, choiceId: string, type: "radio" | "checkbox") {
+    setGeselecteerdeOpties((prev) => {
+      const itemOpties = prev[itemId] ?? {};
+      if (type === "radio") {
+        return { ...prev, [itemId]: { ...itemOpties, [groupId]: [choiceId] } };
+      } else {
+        const huidig = itemOpties[groupId] ?? [];
+        const geselecteerd = huidig.includes(choiceId)
+          ? huidig.filter((id) => id !== choiceId)
+          : [...huidig, choiceId];
+        return { ...prev, [itemId]: { ...itemOpties, [groupId]: geselecteerd } };
+      }
+    });
+  }
+
   const geselecteerd: OrderItem[] = useMemo(
-    () => categorieën.flatMap(({ items }) =>
+    () => categorieen.flatMap(({ items }) =>
       items
         .filter((item) => (aantallen[item.id] ?? 0) > 0)
-        .map((item) => ({
-          itemId: item.id,
-          name: item.name,
-          quantity: aantallen[item.id],
-          price: item.price,
-        }))
+        .map((item) => {
+          const itemOpties = geselecteerdeOpties[item.id] ?? {};
+          const selectedOptions: SelectedOption[] = (item.optionGroups ?? [])
+            .filter((g) => (itemOpties[g.id] ?? []).length > 0)
+            .map((g) => {
+              const choiceIds = itemOpties[g.id] ?? [];
+              const choiceNames = g.choices
+                .filter((c) => choiceIds.includes(c.id))
+                .map((c) => c.name);
+              return { groupId: g.id, groupName: g.name, choiceIds, choiceNames };
+            });
+          const optionPriceAdj = (item.optionGroups ?? []).reduce((sum, g) => {
+            const choiceIds = itemOpties[g.id] ?? [];
+            return sum + g.choices
+              .filter((c) => choiceIds.includes(c.id))
+              .reduce((s, c) => s + c.priceAdjustment, 0);
+          }, 0);
+          return {
+            itemId: item.id,
+            name: item.name,
+            quantity: aantallen[item.id],
+            price: item.price + optionPriceAdj,
+            selectedOptions: selectedOptions.length > 0 ? selectedOptions : undefined,
+          };
+        })
     ),
-    [categorieën, aantallen]
+    [categorieen, aantallen, geselecteerdeOpties]
   );
 
   const totaal = useMemo(
@@ -127,10 +165,26 @@ export default function NieuweBestellingPage() {
   );
 
   async function bevestig() {
-    if (geselecteerd.length === 0) { setBestelFout("Selecteer minstens één item."); return; }
+    if (geselecteerd.length === 0) { toast("Selecteer minstens één item.", "error"); return; }
     if (!activeEvent) return;
+
+    // Validate required options
+    for (const { items } of categorieen) {
+      for (const item of items) {
+        if ((aantallen[item.id] ?? 0) === 0) continue;
+        const itemOpties = geselecteerdeOpties[item.id] ?? {};
+        for (const groep of item.optionGroups ?? []) {
+          if (groep.required && (itemOpties[groep.id] ?? []).length === 0) {
+            toast(`Kies een optie voor "${groep.name}" bij ${item.name}`, "error");
+            return;
+          }
+        }
+      }
+    }
+
     const naam = getLidNaam()!;
     const lidId = getLidId();
+    setBezig(true);
     try {
       const ref = await addDoc(collection(db, `events/${activeEvent.id}/orders`), {
         lidNaam: naam,
@@ -145,11 +199,13 @@ export default function NieuweBestellingPage() {
       router.push(`/bestelling/${ref.id}/betalen?eventId=${activeEvent.id}`);
     } catch (e) {
       console.error(e);
-      setBestelFout("Fout bij opslaan van bestelling.");
+      toast("Fout bij opslaan van bestelling.", "error");
+    } finally {
+      setBezig(false);
     }
   }
 
-  if (laden) return <div className="flex items-center justify-center min-h-screen text-gray-400">Laden...</div>;
+  if (laden) return <div className="min-h-screen"><LoadingOverlay visible /></div>;
   if (fout) return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 gap-4">
       <p className="text-red-400 text-lg">{fout}</p>
@@ -159,6 +215,7 @@ export default function NieuweBestellingPage() {
 
   return (
     <main className="flex flex-col min-h-screen pb-44">
+      <LoadingOverlay visible={bezig} />
       <header className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800 px-3 sm:px-4 py-3">
         <div className="w-full max-w-3xl mx-auto flex items-center gap-3">
           <button onClick={() => router.push("/")} className="text-gray-400 hover:text-white text-xl min-h-10 min-w-10">←</button>
@@ -168,7 +225,7 @@ export default function NieuweBestellingPage() {
       </header>
 
       <div className="flex-1 w-full max-w-3xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3">
-        {categorieën.map(({ cat, items }) => (
+        {categorieen.map(({ cat, items }) => (
           <div key={cat.id} className="bg-gray-900 rounded-2xl overflow-hidden">
             <button
               onClick={() => toggleCat(cat.id)}
@@ -179,26 +236,69 @@ export default function NieuweBestellingPage() {
             </button>
             {uitgeklapt[cat.id] && (
               <div className="border-t border-gray-800">
-                {items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-800 last:border-0">
-                    <div>
-                      <p className="text-white font-medium">{item.name}</p>
-                      <p className="text-green-400 text-sm">€{item.price.toFixed(2)}</p>
+                {items.map((item) => {
+                  const itemOpties = geselecteerdeOpties[item.id] ?? {};
+                  const heeftGroepen = (item.optionGroups ?? []).length > 0;
+                  return (
+                    <div key={item.id} className="px-4 py-3 border-b border-gray-800 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-white font-medium">{item.name}</p>
+                          <p className="text-green-400 text-sm">€{item.price.toFixed(2)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <button
+                            onClick={() => wijzigAantal(item.id, -1)}
+                            disabled={!aantallen[item.id]}
+                            className="w-11 h-11 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white text-2xl flex items-center justify-center"
+                          >−</button>
+                          <span className="text-white font-bold w-6 text-center">{aantallen[item.id] ?? 0}</span>
+                          <button
+                            onClick={() => wijzigAantal(item.id, 1)}
+                            className="w-11 h-11 rounded-full bg-green-700 hover:bg-green-600 text-white text-2xl flex items-center justify-center"
+                          >+</button>
+                        </div>
+                      </div>
+
+                      {heeftGroepen && (
+                        <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-gray-800">
+                          {(item.optionGroups ?? []).map((groep) => (
+                            <div key={groep.id}>
+                              <p className="text-gray-400 text-xs mb-1.5">
+                                {groep.name}
+                                {groep.required && <span className="text-orange-400 ml-1">*</span>}
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {groep.choices.map((keuze) => {
+                                  const geselecteerdIds = itemOpties[groep.id] ?? [];
+                                  const isGeselecteerd = geselecteerdIds.includes(keuze.id);
+                                  return (
+                                    <button
+                                      key={keuze.id}
+                                      onClick={() => selecteerOptie(item.id, groep.id, keuze.id, groep.type)}
+                                      className={`px-3 py-1.5 rounded-full text-sm transition border ${
+                                        isGeselecteerd
+                                          ? "bg-green-700 border-green-600 text-white"
+                                          : "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500"
+                                      }`}
+                                    >
+                                      {keuze.name}
+                                      {keuze.priceAdjustment > 0 && (
+                                        <span className={`ml-1 text-xs ${isGeselecteerd ? "text-green-200" : "text-green-400"}`}>
+                                          +€{keuze.priceAdjustment.toFixed(2)}
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <button
-                        onClick={() => wijzigAantal(item.id, -1)}
-                        disabled={!aantallen[item.id]}
-                        className="w-11 h-11 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white text-2xl flex items-center justify-center"
-                      >−</button>
-                      <span className="text-white font-bold w-6 text-center">{aantallen[item.id] ?? 0}</span>
-                      <button
-                        onClick={() => wijzigAantal(item.id, 1)}
-                        className="w-11 h-11 rounded-full bg-green-700 hover:bg-green-600 text-white text-2xl flex items-center justify-center"
-                      >+</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -207,7 +307,6 @@ export default function NieuweBestellingPage() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-gray-950/95 border-t border-gray-800 px-3 sm:px-4 pt-3 pb-safe flex flex-col gap-2 backdrop-blur-sm">
         <div className="w-full max-w-3xl mx-auto flex flex-col gap-2">
-          {bestelFout && <p className="text-red-400 text-sm text-center">{bestelFout}</p>}
           {geselecteerd.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1 max-h-16 overflow-y-auto">
               {geselecteerd.map((i) => (

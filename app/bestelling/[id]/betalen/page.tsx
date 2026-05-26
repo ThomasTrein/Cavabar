@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import type { Order } from "@/lib/types";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export default function BetalenPage() {
   const router = useRouter();
@@ -57,7 +58,7 @@ export default function BetalenPage() {
     }
   }
 
-  if (laden) return <div className="flex items-center justify-center min-h-screen text-gray-400">Laden...</div>;
+  if (laden) return <div className="min-h-screen"><LoadingOverlay visible /></div>;
   if (!order) return <div className="flex items-center justify-center min-h-screen text-red-400">Bestelling niet gevonden.</div>;
 
   const cashBedrag = parseFloat(cash.replace(",", "."));
@@ -65,6 +66,7 @@ export default function BetalenPage() {
 
   return (
     <main className="flex flex-col min-h-screen w-full max-w-lg mx-auto px-3 sm:px-5 py-4 sm:py-5 gap-5 sm:gap-6 pb-safe">
+      <LoadingOverlay visible={bezig} />
       <header className="flex items-center gap-3">
         <button onClick={() => router.back()} className="text-gray-400 hover:text-white text-xl min-h-10 min-w-10">←</button>
         <h1 className="text-lg sm:text-xl font-bold text-green-400">Betaling</h1>
@@ -74,9 +76,16 @@ export default function BetalenPage() {
       <div className="bg-gray-900 rounded-2xl p-5">
         <p className="text-gray-400 text-sm mb-3">Bestelling overzicht</p>
         {order.items.map((item, i) => (
-          <div key={i} className="flex justify-between py-1 text-white">
-            <span>{item.quantity}× {item.name}</span>
-            <span>€{(item.price * item.quantity).toFixed(2)}</span>
+          <div key={i} className="py-1.5">
+            <div className="flex justify-between text-white">
+              <span>{item.quantity}× {item.name}</span>
+              <span>€{(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+            {(item.selectedOptions ?? []).map((opt) => (
+              <p key={opt.groupId} className="text-gray-500 text-xs ml-4">
+                {opt.groupName}: {opt.choiceNames.join(", ")}
+              </p>
+            ))}
           </div>
         ))}
         <div className="border-t border-gray-700 mt-3 pt-3 flex justify-between font-bold text-lg">
@@ -112,7 +121,7 @@ export default function BetalenPage() {
           disabled={!cashGeldig || bezig}
           className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-lg font-bold py-4 rounded-2xl transition"
         >
-          {bezig ? "Bezig..." : "Bevestigen →"}
+          Bevestigen →
         </button>
       </div>
 

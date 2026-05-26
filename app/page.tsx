@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 const NAAM_KEY = "cavabar_naam";
 const NAAM_DATUM_KEY = "cavabar_naam_datum";
@@ -20,8 +21,8 @@ function getNaamVandaag(): string | null {
 
 export default function HomePage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [naam, setNaam] = useState("");
-  const [fout, setFout] = useState("");
   const [huidigNaam, setHuidigNaam] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,22 +30,16 @@ export default function HomePage() {
     if (n) {
       setHuidigNaam(n);
     }
-    router.prefetch("/bestelling/nieuw");
-    router.prefetch("/geschiedenis");
-    router.prefetch("/admin");
-  }, [router]);
+  }, []);
 
   function slaOp() {
     if (!naam.trim()) {
-      setFout("Voer je naam in.");
+      toast("Voer je naam in.", "error");
       return;
     }
-    const opgeschoondeNaam = naam.trim();
-    localStorage.setItem(NAAM_KEY, opgeschoondeNaam);
+    localStorage.setItem(NAAM_KEY, naam.trim());
     localStorage.setItem(NAAM_DATUM_KEY, new Date().toDateString());
-    setHuidigNaam(opgeschoondeNaam);
-    setNaam("");
-    setFout("");
+    router.push("/bestelling/nieuw");
   }
 
   function meldAf() {
@@ -106,12 +101,11 @@ export default function HomePage() {
           type="text"
           placeholder="Jouw naam"
           value={naam}
-          onChange={(e) => { setNaam(e.target.value); setFout(""); }}
+          onChange={(e) => setNaam(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && slaOp()}
           className="w-full bg-gray-800 border border-gray-700 text-white text-xl px-5 py-4 rounded-2xl focus:outline-none focus:border-green-500"
           autoFocus
         />
-        {fout && <p className="text-red-400 text-sm">{fout}</p>}
         <button
           onClick={slaOp}
           className="w-full bg-green-600 hover:bg-green-500 text-white text-xl font-bold py-5 rounded-2xl transition"
