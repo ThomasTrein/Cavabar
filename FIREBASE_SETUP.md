@@ -8,7 +8,7 @@ Deze gids legt stap voor stap uit hoe je Firebase instelt voor het Cavabar beste
 
 1. Ga naar [https://console.firebase.google.com](https://console.firebase.google.com)
 2. Klik op **"Project toevoegen"** (of "Add project")
-3. Geef het project de naam: **`cavabar-bestelapp`**
+3. Geef het project een naam, bv. **`jouw-project-id`**
 4. Google Analytics: **uitschakelen** (niet nodig)
 5. Klik op **"Project aanmaken"**
 
@@ -54,9 +54,9 @@ service cloud.firestore {
 ```js
 const firebaseConfig = {
   apiKey: "AIzaSy...",
-  authDomain: "cavabar-bestelapp.firebaseapp.com",
-  projectId: "cavabar-bestelapp",
-  storageBucket: "cavabar-bestelapp.firebasestorage.app",
+  authDomain: "<jouw-project-id>.firebaseapp.com",
+  projectId: "<jouw-project-id>",
+  storageBucket: "<jouw-project-id>.firebasestorage.app",
   messagingSenderId: "123456789",
   appId: "1:123456789:web:abc123"
 };
@@ -73,14 +73,12 @@ Open het bestand **`C:\Users\ThomasLisabeth\Documents\Cavabar\.env.local`** en v
 ```env
 # Firebase - Cavabar project
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=cavabar-bestelapp.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=cavabar-bestelapp
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cavabar-bestelapp.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=<jouw-project-id>.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=<jouw-project-id>
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=<jouw-project-id>.firebasestorage.app
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
 NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
 
-# Admin wachtwoord (verander dit naar iets veiliger!)
-NEXT_PUBLIC_ADMIN_PASSWORD=admin123
 ```
 
 > 💡 Vervang alle waarden na `=` door jouw eigen waarden uit de Firebase console.
@@ -118,10 +116,11 @@ Ga naar [http://localhost:3000](http://localhost:3000)
 ## Stap 7 — Eerste keer instellen in de app
 
 1. Ga naar [http://localhost:3000/admin](http://localhost:3000/admin)
-2. Log in met het wachtwoord: **`admin123`** (of wat je ingesteld hebt in `.env.local`)
-3. Maak een **evenement** aan (bv. "Rommelmarkt 2026") en activeer het
-4. Ga naar het tabblad **🍺 Menu** en voeg categorieën en dranken toe
-5. Klaar! De leden kunnen nu bestellingen plaatsen via de startpagina
+2. Zorg dat er in Firestore een document bestaat: **`settings/global`** met veld **`adminPassword`** (string)
+3. Log in met dat wachtwoord op `/admin`
+4. Maak een **evenement** aan (bv. "Rommelmarkt 2026") en activeer het
+5. Ga naar het tabblad **🍺 Menu** en voeg categorieën en dranken toe
+6. Klaar! De leden kunnen nu bestellingen plaatsen via de startpagina
 
 ---
 

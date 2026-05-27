@@ -18,6 +18,7 @@ export default function AdminInstellingen() {
   const [lichtThema, setLichtThema] = useState(false);
   const [themaLaden, setThemaLaden] = useState(true);
   const [themaBezig, setThemaBezig] = useState(false);
+  const [wachtwoordBezig, setWachtwoordBezig] = useState(false);
 
   useEffect(() => { laadThema(); }, []);
 
@@ -46,12 +47,36 @@ export default function AdminInstellingen() {
     }
   }
 
-  function wijzigWachtwoord() {
-    const correct = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "admin123";
-    if (huidigWw !== correct) { toast("Huidig wachtwoord is fout.", "error"); return; }
+  async function wijzigWachtwoord() {
+    if (!huidigWw.trim()) { toast("Vul je huidige wachtwoord in.", "error"); return; }
     if (!nieuwWw.trim()) { toast("Nieuw wachtwoord mag niet leeg zijn.", "error"); return; }
     if (nieuwWw !== bevestigWw) { toast("Wachtwoorden komen niet overeen.", "error"); return; }
-    toast(`Sla dit op in .env.local: NEXT_PUBLIC_ADMIN_PASSWORD=${nieuwWw}`, "info");
+
+    setWachtwoordBezig(true);
+    try {
+      const ref = doc(db, "settings", "global");
+      const snap = await getDoc(ref);
+      const opgeslagenWachtwoord = snap.exists() ? snap.data()?.adminPassword : null;
+
+      if (typeof opgeslagenWachtwoord !== "string" || opgeslagenWachtwoord.length === 0) {
+        toast("Geen admin wachtwoord ingesteld in Firebase.", "error");
+        return;
+      }
+
+      if (huidigWw !== opgeslagenWachtwoord) {
+        toast("Huidig wachtwoord is fout.", "error");
+        return;
+      }
+
+      await setDoc(ref, { adminPassword: nieuwWw }, { merge: true });
+    } catch {
+      toast("Netwerkfout. Probeer opnieuw.", "error");
+      return;
+    } finally {
+      setWachtwoordBezig(false);
+    }
+
+    toast("Admin wachtwoord opgeslagen in Firebase.", "success");
     setHuidigWw(""); setNieuwWw(""); setBevestigWw("");
   }
 
@@ -110,10 +135,11 @@ export default function AdminInstellingen() {
           className="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-xl focus:outline-none focus:border-green-500"
         />
         <button
-          onClick={wijzigWachtwoord}
-          className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-xl transition"
+          onClick={() => { void wijzigWachtwoord(); }}
+          disabled={wachtwoordBezig}
+          className="bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-bold py-2 rounded-xl transition"
         >
-          Wachtwoord wijzigen
+          {wachtwoordBezig ? "Bezig..." : "Wachtwoord wijzigen"}
         </button>
       </div>
     </div>

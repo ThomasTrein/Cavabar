@@ -7,6 +7,8 @@ import AdminMenu from "@/components/admin/AdminMenu";
 import AdminBestellingen from "@/components/admin/AdminBestellingen";
 import AdminStatistieken from "@/components/admin/AdminStatistieken";
 import AdminInstellingen from "@/components/admin/AdminInstellingen";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 const ADMIN_KEY = "cavabar_admin_auth";
 const ADMIN_DATUM_KEY = "cavabar_admin_datum";
@@ -23,20 +25,41 @@ export default function AdminPage() {
   const [ingelogd, setIngelogd] = useState(false);
   const [ww, setWw] = useState("");
   const [fout, setFout] = useState("");
+  const [inloggenBezig, setInloggenBezig] = useState(false);
   const [actieveTab, setActieveTab] = useState<Tab>("evenementen");
 
   useEffect(() => {
     setIngelogd(isAdminIngelogd());
   }, []);
 
-  function login() {
-    const correct = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "admin123";
-    if (ww === correct) {
-      localStorage.setItem(ADMIN_KEY, "1");
-      localStorage.setItem(ADMIN_DATUM_KEY, new Date().toDateString());
-      setIngelogd(true);
-    } else {
+  async function login() {
+    if (!ww.trim()) {
+      setFout("Voer een wachtwoord in.");
+      return;
+    }
+
+    setFout("");
+    setInloggenBezig(true);
+    try {
+      const snap = await getDoc(doc(db, "settings", "global"));
+      const opgeslagenWachtwoord = snap.exists() ? snap.data()?.adminPassword : null;
+      if (typeof opgeslagenWachtwoord !== "string" || opgeslagenWachtwoord.length === 0) {
+        setFout("Geen admin wachtwoord ingesteld in Firebase.");
+        return;
+      }
+
+      if (ww === opgeslagenWachtwoord) {
+        localStorage.setItem(ADMIN_KEY, "1");
+        localStorage.setItem(ADMIN_DATUM_KEY, new Date().toDateString());
+        setIngelogd(true);
+        return;
+      }
+
       setFout("Fout wachtwoord.");
+    } catch {
+      setFout("Netwerkfout. Probeer opnieuw.");
+    } finally {
+      setInloggenBezig(false);
     }
   }
 
@@ -68,16 +91,18 @@ export default function AdminPage() {
             placeholder="Wachtwoord"
             value={ww}
             onChange={(e) => { setWw(e.target.value); setFout(""); }}
-            onKeyDown={(e) => e.key === "Enter" && login()}
+            onKeyDown={(e) => e.key === "Enter" && void login()}
             className="bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-green-500"
             autoFocus
+            disabled={inloggenBezig}
           />
           {fout && <p className="text-red-400 text-sm">{fout}</p>}
           <button
-            onClick={login}
-            className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition"
+            onClick={() => { void login(); }}
+            disabled={inloggenBezig}
+            className="bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition"
           >
-            Inloggen
+            {inloggenBezig ? "Bezig..." : "Inloggen"}
           </button>
         </div>
       </main>
