@@ -147,12 +147,15 @@ export default function NieuweBestellingPage() {
               .filter((c) => choiceIds.includes(c.id))
               .reduce((s, c) => s + c.priceAdjustment, 0);
           }, 0);
-          return {
+          const basisItem: OrderItem = {
             itemId: item.id,
             name: item.name,
             quantity: aantallen[item.id],
             price: item.price + optionPriceAdj,
-            selectedOptions: selectedOptions.length > 0 ? selectedOptions : undefined,
+          };
+          return {
+            ...basisItem,
+            ...(selectedOptions.length > 0 ? { selectedOptions } : {}),
           };
         })
     ),
